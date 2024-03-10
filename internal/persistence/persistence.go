@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log"
 	"os"
-	"rinha-backend-q1-2024/internal/canonical"
+	"rinha-backend-q1-2024/internal/entities"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -17,8 +17,8 @@ var (
 )
 
 type PersistenceLayer interface {
-	AddTransaction(ctx context.Context, clienteId int, financialTransaction canonical.FinancialTransaction) (canonical.TransactionBalance, error)
-	GetStatement(ctx context.Context, clienteId int) (canonical.Statement, error)
+	AddTransaction(ctx context.Context, clienteId int, financialTransaction entities.FinancialTransaction) (entities.TransactionBalance, error)
+	GetStatement(ctx context.Context, clienteId int) (entities.Statement, error)
 	Close()
 }
 
@@ -32,24 +32,21 @@ func NewPersistence(ctx context.Context) PersistenceLayer {
 		log.Fatalln("Unable to parse DATABASE_URL:", err)
 	}
 
-	poolConfig.MinConns = 1
-	poolConfig.MaxConns = 300
+	poolConfig.MinConns = 30
+	poolConfig.MaxConns = 150
 
 	db, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		log.Fatalln("Unable to create connection pool:", err)
 	}
-	//db.SetMaxOpenConns(300)
-	//db.SetMaxIdleConns(100)
 
-	//defer db.Close()
 	return &postgresBase{db: db}
 }
 
-func (pb *postgresBase) AddTransaction(ctx context.Context, clienteId int, financialTransaction canonical.FinancialTransaction) (canonical.TransactionBalance, error) {
+func (pb *postgresBase) AddTransaction(ctx context.Context, clienteId int, financialTransaction entities.FinancialTransaction) (entities.TransactionBalance, error) {
 	tx, err := pb.db.Begin(ctx)
 	if err != nil {
-		return canonical.TransactionBalance{}, err
+		return entities.TransactionBalance{}, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -62,37 +59,37 @@ func (pb *postgresBase) AddTransaction(ctx context.Context, clienteId int, finan
 	var balance int64
 	var limit int64
 	if err := row.Scan(&balance, &limit); err != nil {
-		return canonical.TransactionBalance{}, err
+		return entities.TransactionBalance{}, err
 	}
 
 	_, err = tx.Exec(ctx, "INSERT INTO transacoes (valor, tipo, descricao, cliente_id) VALUES ($1, $2, $3, $4)", financialTransaction.Valor, financialTransaction.Tipo, financialTransaction.Descricao, clienteId)
 	if err != nil {
-		return canonical.TransactionBalance{}, err
+		return entities.TransactionBalance{}, err
 	}
 
-	return canonical.TransactionBalance{
+	return entities.TransactionBalance{
 		Limite: limit,
 		Saldo:  balance,
 	}, tx.Commit(ctx)
 }
 
-func (pb *postgresBase) GetStatement(ctx context.Context, clienteId int) (canonical.Statement, error) {
-	statement := canonical.Statement{
-		LastTransactions: make([]canonical.FinancialTransaction, 0),
+func (pb *postgresBase) GetStatement(ctx context.Context, clienteId int) (entities.Statement, error) {
+	statement := entities.Statement{
+		LastTransactions: make([]entities.FinancialTransaction, 0),
 	}
 
 	row := pb.db.QueryRow(ctx, "SELECT saldo, limite FROM clientes WHERE id = $1", clienteId)
 	var balance int64
 	var limit int64
 	if err := row.Scan(&balance, &limit); err != nil {
-		return canonical.Statement{}, err
+		return entities.Statement{}, err
 	}
 	statement.Balance.Limite = limit
 	statement.Balance.Total = balance
 
 	rows, err := pb.db.Query(ctx, "SELECT valor, tipo, descricao, realizado_em FROM transacoes WHERE cliente_id = $1 ORDER BY realizado_em DESC LIMIT 10", clienteId)
 	if err != nil {
-		return canonical.Statement{}, err
+		return entities.Statement{}, err
 	}
 
 	for rows.Next() {
@@ -105,10 +102,10 @@ func (pb *postgresBase) GetStatement(ctx context.Context, clienteId int) (canoni
 			if err.Error() == pgx.ErrNoRows.Error() {
 				return statement, nil
 			}
-			return canonical.Statement{}, err
+			return entities.Statement{}, err
 		}
 
-		statement.LastTransactions = append(statement.LastTransactions, canonical.FinancialTransaction{
+		statement.LastTransactions = append(statement.LastTransactions, entities.FinancialTransaction{
 			Valor:       valor,
 			Tipo:        tipo,
 			Descricao:   descricao,

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"rinha-backend-q1-2024/internal/canonical"
+	"rinha-backend-q1-2024/internal/entities"
 	"rinha-backend-q1-2024/internal/persistence"
 	"rinha-backend-q1-2024/internal/service"
 	"strconv"
@@ -46,7 +46,7 @@ func transacaoHandler(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusBadRequest)
 	}
 
-	var transacao canonical.FinancialTransaction
+	var transacao entities.FinancialTransaction
 	if err := json.Unmarshal(ctx.Body(), &transacao); err != nil {
 		return ctx.SendStatus(fiber.StatusUnprocessableEntity)
 	}

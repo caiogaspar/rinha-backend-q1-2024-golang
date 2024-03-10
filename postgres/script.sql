@@ -1,5 +1,5 @@
 DROP TABLE IF EXISTS public.clientes;
-CREATE TABLE public.clientes (
+CREATE UNLOGGED TABLE public.clientes (
   id SERIAL PRIMARY KEY NOT NULL,
   nome varchar(100) NOT NULL,
   limite INT NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE public.clientes (
 );
 
 DROP TABLE IF EXISTS public.transacoes;
-CREATE TABLE public.transacoes (
+CREATE UNLOGGED TABLE public.transacoes (
   id SERIAL PRIMARY KEY NOT NULL,
   tipo char(1) NOT NULL,
   valor INT NOT NULL,

@@ -1,4 +1,4 @@
-package canonical
+package entities
 
 type FinancialTransaction struct {
 	Valor       int64  `json:"valor,omitempty"`
